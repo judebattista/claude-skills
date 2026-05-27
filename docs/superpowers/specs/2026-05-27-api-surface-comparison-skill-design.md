@@ -8,13 +8,19 @@
 
 ## Background & Motivation
 
-When generating clients and mocks for a system, there are three artifacts that must remain compatible:
+Any piece of software with a design document has two representations of its API:
 
-1. **The design document** — the authoritative specification of what the system should do
-2. **The client** — generated or hand-written code that talks to the system
-3. **The mock** — a test double that stands in for the real system during testing
+1. **The design document (alpha)** — what the API is *supposed* to be
+2. **The implementation (beta)** — what the API *actually* is in code
 
-Drift between any of these breaks either the tests or the production integration. This skill automates the detection of that drift by comparing the API surface described in the design document against the API surface found in the actual code.
+Drift between these two is a common and costly problem:
+
+- **Alpha has something beta doesn't** → an unimplemented feature; the design promises something the code doesn't deliver
+- **Beta has something alpha doesn't** → feature creep or an underspecified design; the code has grown beyond what was agreed
+
+This skill automates the detection of that drift for any single software artifact by independently extracting both API surfaces and comparing them.
+
+**Usage pattern:** The skill is invoked once per artifact. To verify a client and its mock separately, you run the skill twice — once with the client's design doc and client code, once with the mock's design doc and mock code. Whether the client's API and the mock's API should match each other is a separate question handled by a different skill.
 
 **Key correctness constraint:** The two extractions must be **fully independent**. If a developer reviews both extractions before comparison, they may unconsciously normalize one toward the other, defeating the purpose of the check. Separate subagents with divergent contexts enforce this independence at the execution level.
 
@@ -23,7 +29,7 @@ Drift between any of these breaks either the tests or the production integration
 ## Skill Identity
 
 - **Name:** `api-surface-comparison`
-- **Description:** Use when verifying that an API design document and a codebase implementation agree — dispatches parallel subagents to independently extract both API surfaces to canonical YAML, then compares them to find missing features, feature creep, and signature mismatches.
+- **Description:** Use when verifying that a single software artifact's implementation matches its design document — dispatches parallel subagents to independently extract both API surfaces to canonical YAML, then compares them to find missing features, feature creep, and signature mismatches.
 - **Target audience:** Small team (Python, C/C++, Rust)
 - **Skill type:** Technique (concrete workflow with defined steps)
 
@@ -41,6 +47,7 @@ Drift between any of these breaks either the tests or the production integration
 
 ### Out of scope
 - gRPC / Protobuf (future extension)
+- Cross-artifact compatibility (e.g. client vs. mock) — separate skill
 - Semantic comparison of docstrings or behavior
 - Automatic remediation of discrepancies
 
@@ -56,7 +63,7 @@ User invokes skill
       ▼
 Main Claude gathers inputs:
   - path to design document (alpha source)
-  - path(s) to codebase (beta source)
+  - path(s) to implementation code (beta source)
   - api_type: function_signatures | http_endpoints
       │
       ▼
@@ -83,7 +90,7 @@ Dispatch two subagents IN PARALLEL
 
 Main Claude asks the user for:
 - Path to the design document (markdown)
-- Path(s) to the source files to examine (can be a directory)
+- Path(s) to the source files or directory to examine
 - API type: `function_signatures` or `http_endpoints` (or both)
 
 ### Phase 2 — Parallel Extraction (Subagents)
@@ -179,7 +186,7 @@ When ambiguous, prefer the more specific form (typed signature > name only).
 - Capture PEP 484 annotations for parameter and return types
 - If no type hints present, use `unknown` as the type
 - Include `@property` as zero-parameter function members
-- Skip private methods (`_name`, `__name`) unless they appear in the design doc
+- Skip private methods (`_name`, `__name__`) unless they appear in the design doc
 
 ### C / C++ Headers (Beta)
 
@@ -222,7 +229,8 @@ When ambiguous, prefer the more specific form (typed signature > name only).
 ```
 ## API Surface Comparison
 
-Alpha source: docs/design.md (12 members)
+Artifact: UserClient
+Alpha source: docs/client-design.md (12 members)
 Beta source:  src/client.py (14 members)
 
 ✅  9  matched
@@ -237,7 +245,10 @@ Full comparison table with:
 - All members from both sides, categorized
 - Exact signatures where mismatches occur
 - Extraction metadata (source paths, timestamps, api_type)
-- Recommendation: review ❌ items for missing implementation, review ⚠️ items to update spec or remove from code
+- Recommendations:
+  - ❌ items: missing implementation — update code or remove from spec
+  - ⚠️ items: undocumented implementation — update spec or remove from code
+  - 🔀 items: signature drift — align types between spec and code
 
 ---
 
@@ -264,5 +275,5 @@ docs/superpowers/specs/
 ## Future Extensions
 
 - gRPC / Protobuf support (add `rpc_method` as a `kind`)
-- Three-way comparison (design doc vs. client vs. mock as three independent extractions)
+- Cross-artifact compatibility skill: compare alpha.yaml from one artifact against beta.yaml from another (e.g. client vs. mock)
 - Snapshot diffing: compare today's `alpha.yaml` against a previous committed version to track spec drift over time
