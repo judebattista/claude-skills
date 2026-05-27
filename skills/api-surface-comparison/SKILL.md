@@ -184,13 +184,13 @@ Prefer typed information over name-only. If a signature appears both in prose an
 
 ### Python (Beta)
 
+- **`self` and `cls` are NOT parameters — never include them in the `parameters` list.**
+- **Exclude class definitions themselves** — do not add a member entry for `class User`, `class UserService`, or any other class. Only extract the _methods_ of relevant classes.
 - Scan all `def` statements in the target file(s).
 - Include class methods; set `namespace` to the class name.
 - Include `@property` methods as zero-parameter `function` members.
-- **`self` and `cls` are NOT parameters — never include them in the `parameters` list.**
 - **Exclude** private methods: names starting with `_` or `__`, unless that name explicitly appears in the design doc.
   - **Example:** `_internal_cache_reset`, `__init__`, `_validate`, `__str__` are all excluded. The `_` prefix is the only signal needed — do not include them regardless of their purpose.
-- **Exclude class definitions themselves** — do not add a member entry for `class User`, `class UserService`, or any other class. Only extract the _methods_ of relevant classes.
 - If a parameter lacks a PEP 484 type annotation, use `unknown` as its type.
 
 ### C/C++ Headers (Beta)
