@@ -32,16 +32,16 @@ The correct process always uses **two independent subagents dispatched in parall
 
 The following mistakes have been observed in baseline (unskilled) attempts. All are forbidden.
 
-| Mistake | Why It Is Forbidden |
-|---|---|
-| Reading both files in the same Claude context | Produces conflation and hallucinated matches; no auditable extraction |
-| Comparing conversationally without writing YAML | No durable extraction artifact; cannot be verified or re-run |
-| Never dispatching subagents | Bypasses the parallel isolation that makes comparison reliable |
-| Not writing a report file | Output lives only in chat; cannot be referenced later |
-| Using one subagent sequentially rather than two in parallel | Violates isolation; later subagent can be influenced by first |
-| Skipping private method exclusion in Python | Over-reports beta surface; inflates "extra in beta" count |
-| Omitting `extracted_at` timestamp | Breaks schema; makes artifact non-auditable |
-| Comparing parameter names instead of types | Produces false mismatches when names differ but types match |
+| Mistake | Why It Is Forbidden | What to do instead |
+|---|---|---|
+| Reading both files in the same Claude context | Produces conflation and hallucinated matches; no auditable extraction | Dispatch subagents FIRST using `superpowers:dispatching-parallel-agents`; never read both source files yourself |
+| Comparing conversationally without writing YAML | No durable extraction artifact; cannot be verified or re-run | Subagents must write their output to `api-surface/alpha.yaml` and `api-surface/beta.yaml` before Phase 3 begins |
+| Never dispatching subagents | Bypasses the parallel isolation that makes comparison reliable | Always invoke `superpowers:dispatching-parallel-agents` in Phase 2; this is not optional |
+| Not writing a report file | Output lives only in chat; cannot be referenced later | Write `api-surface/report.md` in Phase 4 before declaring the skill complete |
+| Using one subagent sequentially rather than two in parallel | Violates isolation; later subagent can be influenced by first | Dispatch both subagents simultaneously so each sees only one source in an isolated context |
+| Skipping private method exclusion in Python | Over-reports beta surface; inflates "extra in beta" count | Exclude all names starting with `_` or `__` unless the name explicitly appears in the design doc |
+| Omitting `extracted_at` timestamp | Breaks schema; makes artifact non-auditable | Include an ISO 8601 `extracted_at` timestamp in every YAML file written by a subagent |
+| Comparing parameter names instead of types | Produces false mismatches when names differ but types match | Match on parameter types and order only; ignore parameter name differences during comparison |
 
 ---
 
@@ -88,14 +88,17 @@ Invoke `superpowers:dispatching-parallel-agents` to launch **two subagents simul
 
 Both subagents must complete and write their YAML files before Phase 3 begins.
 
+The `superpowers:dispatching-parallel-agents` sub-skill handles the join barrier — do not proceed to Phase 3 until both subagent tasks have returned and confirmed their YAML files are written.
+
 ---
 
 ## Canonical YAML Format
 
-Both `alpha.yaml` and `beta.yaml` must use this exact schema:
+Both `alpha.yaml` and `beta.yaml` must use this exact schema. Choose the example that matches your `api_type`.
 
 ```yaml
-source: "path/to/source"
+# --- function_signatures example ---
+source: "docs/design.md"
 api_type: function_signatures
 extracted_at: "2026-05-27T14:30:00"
 members:
@@ -106,6 +109,14 @@ members:
       - name: user_id
         type: int
     return_type: User
+```
+
+```yaml
+# --- http_endpoints example ---
+source: "docs/design.md"
+api_type: http_endpoints
+extracted_at: "2026-05-27T14:30:00"
+members:
   - name: GET /users/{id}
     kind: http_endpoint
     parameters:
