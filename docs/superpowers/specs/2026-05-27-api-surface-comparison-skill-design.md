@@ -20,7 +20,7 @@ Drift between these two is a common and costly problem:
 
 This skill automates the detection of that drift for any single software artifact by independently extracting both API surfaces and comparing them.
 
-**Usage pattern:** The skill is invoked once per artifact. To verify a client and its mock separately, you run the skill twice — once with the client's design doc and client code, once with the mock's design doc and mock code. Whether the client's API and the mock's API should match each other is a separate question handled by a different skill.
+**Usage pattern:** The skill is invoked once per artifact. 
 
 **Key correctness constraint:** The two extractions must be **fully independent**. If a developer reviews both extractions before comparison, they may unconsciously normalize one toward the other, defeating the purpose of the check. Separate subagents with divergent contexts enforce this independence at the execution level.
 
