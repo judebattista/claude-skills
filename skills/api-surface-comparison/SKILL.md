@@ -42,6 +42,7 @@ The following mistakes have been observed in baseline (unskilled) attempts. All 
 | Skipping private method exclusion in Python | Over-reports beta surface; inflates "extra in beta" count | Exclude all names starting with `_` or `__` unless the name explicitly appears in the design doc |
 | Omitting `extracted_at` timestamp | Breaks schema; makes artifact non-auditable | Include an ISO 8601 `extracted_at` timestamp in every YAML file written by a subagent |
 | Comparing parameter names instead of types | Produces false mismatches when names differ but types match | Match on parameter types and order only; ignore parameter name differences during comparison |
+| Using `kind: method` or `kind: class` | These kinds are not in the schema; the comparison will fail to match against alpha | Use `kind: function` for all callable members; never emit `kind: method` or `kind: class` |
 
 ---
 
@@ -134,7 +135,7 @@ members:
 | `api_type` | Yes | Must match between alpha.yaml and beta.yaml |
 | `extracted_at` | Yes | ISO 8601 timestamp |
 | `members[].name` | Yes | Functions: bare name. HTTP: `VERB /path` |
-| `members[].kind` | Yes | `function` or `http_endpoint` |
+| `members[].kind` | Yes | `function` or `http_endpoint`. `method` is NOT a valid kind — use `function` for all callable members regardless of whether they are standalone functions or class methods. |
 | `members[].namespace` | No | Omit if member is top-level (not in a class/module) |
 | `members[].parameters` | Yes | Use `[]` if the member takes no parameters |
 | `members[].return_type` | Yes (functions) | Use `void` or `None` if no return value |
@@ -186,9 +187,11 @@ Prefer typed information over name-only. If a signature appears both in prose an
 - Scan all `def` statements in the target file(s).
 - Include class methods; set `namespace` to the class name.
 - Include `@property` methods as zero-parameter `function` members.
+- **`self` and `cls` are NOT parameters — never include them in the `parameters` list.**
 - **Exclude** private methods: names starting with `_` or `__`, unless that name explicitly appears in the design doc.
+  - **Example:** `_internal_cache_reset`, `__init__`, `_validate`, `__str__` are all excluded. The `_` prefix is the only signal needed — do not include them regardless of their purpose.
+- **Exclude class definitions themselves** — do not add a member entry for `class User`, `class UserService`, or any other class. Only extract the _methods_ of relevant classes.
 - If a parameter lacks a PEP 484 type annotation, use `unknown` as its type.
-- `self` and `cls` parameters are not API parameters; omit them.
 
 ### C/C++ Headers (Beta)
 
